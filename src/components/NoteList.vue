@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { supabase, type Note } from '../lib/supabase'
+import { listNotes, createNote as createNoteRequest } from '../lib/api/notes'
+import type { Note } from '../lib/api/types'
+import type { ApiError } from '../lib/api/types'
 
 const emit = defineEmits<{
   selectNote: [note: Note]
@@ -17,19 +19,15 @@ const loadNotes = async () => {
   loading.value = true
   error.value = ''
 
-  const { data, error: fetchError } = await supabase
-    .from('notes')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  if (fetchError) {
-    error.value = 'Failed to load notes'
-    console.error(fetchError)
-  } else {
-    notes.value = data || []
+  try {
+    notes.value = await listNotes()
+  } catch (err) {
+    const apiError = err as Partial<ApiError>
+    error.value = apiError?.message || 'Failed to load notes'
+    console.error(err)
+  } finally {
+    loading.value = false
   }
-
-  loading.value = false
 }
 
 const createNote = async () => {
@@ -38,40 +36,37 @@ const createNote = async () => {
     return
   }
 
-  loading.value = true
-  error.value = ''
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    error.value = 'You must be logged in to create notes'
-    loading.value = false
+  if (newNoteTitle.value.trim().length > 200) {
+    error.value = 'Title cannot exceed 200 characters'
     return
   }
 
-  const { error: insertError } = await supabase
-    .from('notes')
-    .insert({
-      title: newNoteTitle.value.trim(),
-      content: newNoteContent.value.trim(),
-      user_id: user.id
-    })
+  loading.value = true
+  error.value = ''
 
-  if (insertError) {
-    error.value = 'Failed to create note'
-    console.error(insertError)
-  } else {
+  try {
+    const content = newNoteContent.value.trim()
+    await createNoteRequest({
+      title: newNoteTitle.value.trim(),
+      content: content || undefined,
+    })
     newNoteTitle.value = ''
     newNoteContent.value = ''
     showCreateForm.value = false
     await loadNotes()
+  } catch (err) {
+    const apiError = err as Partial<ApiError>
+    error.value = apiError?.message || 'Failed to create note'
+    console.error(err)
+  } finally {
+    loading.value = false
   }
-
-  loading.value = false
 }
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return 'Unknown'
   const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return dateString
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -151,10 +146,10 @@ onMounted(() => {
       >
         <h3 class="font-semibold text-lg text-gray-800 mb-2">{{ note.title }}</h3>
         <p class="text-sm text-gray-600">
-          Created: {{ formatDate(note.created_at) }}
+          Created: {{ formatDate(note.createdAt) }}
         </p>
-        <p v-if="note.updated_at !== note.created_at" class="text-xs text-pink-600 mt-1">
-          Updated: {{ formatDate(note.updated_at) }}
+        <p v-if="note.updatedAt && note.updatedAt !== note.createdAt" class="text-xs text-pink-600 mt-1">
+          Updated: {{ formatDate(note.updatedAt) }}
         </p>
       </div>
     </div>

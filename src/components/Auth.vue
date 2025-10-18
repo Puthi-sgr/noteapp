@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { supabase } from '../lib/supabase'
+import { login, register } from '../lib/api/auth'
+import type { ApiError } from '../lib/api/types'
 
 const emit = defineEmits<{
   authenticated: []
@@ -11,7 +12,6 @@ const password = ref('')
 const isSignUp = ref(false)
 const loading = ref(false)
 const error = ref('')
-const successMessage = ref('')
 
 const handleAuth = async () => {
   if (!email.value || !password.value) {
@@ -21,36 +21,23 @@ const handleAuth = async () => {
 
   loading.value = true
   error.value = ''
-  successMessage.value = ''
 
   try {
     if (isSignUp.value) {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: email.value,
-        password: password.value
+      await register({
+        email: email.value.trim(),
+        password: password.value,
       })
-
-      if (signUpError) {
-        error.value = signUpError.message
-      } else {
-        successMessage.value = 'Account created successfully! Please sign in.'
-        isSignUp.value = false
-        password.value = ''
-      }
     } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.value,
-        password: password.value
+      await login({
+        email: email.value.trim(),
+        password: password.value,
       })
-
-      if (signInError) {
-        error.value = signInError.message
-      } else {
-        emit('authenticated')
-      }
     }
+    emit('authenticated')
   } catch (err) {
-    error.value = 'An unexpected error occurred'
+    const apiError = err as Partial<ApiError>
+    error.value = apiError?.message || 'An unexpected error occurred'
     console.error(err)
   }
 
@@ -70,10 +57,6 @@ const handleAuth = async () => {
 
       <div v-if="error" class="bg-pink-100 border border-pink-400 text-pink-700 px-4 py-3 rounded mb-4">
         {{ error }}
-      </div>
-
-      <div v-if="successMessage" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-        {{ successMessage }}
       </div>
 
       <form @submit.prevent="handleAuth" class="space-y-4">
@@ -111,7 +94,7 @@ const handleAuth = async () => {
 
       <div class="mt-6 text-center">
         <button
-          @click="isSignUp = !isSignUp; error = ''; successMessage = ''"
+          @click="isSignUp = !isSignUp; error = ''"
           class="text-pink-600 hover:text-pink-800 font-medium transition-colors"
         >
           {{ isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up" }}

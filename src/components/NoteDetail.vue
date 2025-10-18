@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { supabase, type Note } from '../lib/supabase'
+import { updateNote as updateNoteRequest, deleteNote as deleteNoteRequest } from '../lib/api/notes'
+import type { Note, ApiError } from '../lib/api/types'
 
 const props = defineProps<{
   note: Note | null
@@ -20,7 +21,7 @@ const error = ref('')
 watch(() => props.note, (newNote) => {
   if (newNote) {
     editTitle.value = newNote.title
-    editContent.value = newNote.content
+    editContent.value = newNote.content ?? ''
     isEditing.value = false
     error.value = ''
   }
@@ -32,26 +33,29 @@ const updateNote = async () => {
     return
   }
 
+  if (editTitle.value.trim().length > 200) {
+    error.value = 'Title cannot exceed 200 characters'
+    return
+  }
+
   loading.value = true
   error.value = ''
 
-  const { error: updateError } = await supabase
-    .from('notes')
-    .update({
+  try {
+    const content = editContent.value.trim()
+    await updateNoteRequest(props.note.id, {
       title: editTitle.value.trim(),
-      content: editContent.value.trim()
+      content: content || undefined,
     })
-    .eq('id', props.note.id)
-
-  if (updateError) {
-    error.value = 'Failed to update note'
-    console.error(updateError)
-  } else {
     isEditing.value = false
     emit('updated')
+  } catch (err) {
+    const apiError = err as Partial<ApiError>
+    error.value = apiError?.message || 'Failed to update note'
+    console.error(err)
+  } finally {
+    loading.value = false
   }
-
-  loading.value = false
 }
 
 const deleteNote = async () => {
@@ -64,23 +68,23 @@ const deleteNote = async () => {
   loading.value = true
   error.value = ''
 
-  const { error: deleteError } = await supabase
-    .from('notes')
-    .delete()
-    .eq('id', props.note.id)
-
-  if (deleteError) {
-    error.value = 'Failed to delete note'
-    console.error(deleteError)
-    loading.value = false
-  } else {
+  try {
+    await deleteNoteRequest(props.note.id)
     emit('updated')
     emit('close')
+  } catch (err) {
+    const apiError = err as Partial<ApiError>
+    error.value = apiError?.message || 'Failed to delete note'
+    console.error(err)
+  } finally {
+    loading.value = false
   }
 }
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return 'Unknown'
   const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return dateString
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -126,9 +130,9 @@ const formatDate = (dateString: string) => {
       <h1 class="text-3xl font-bold text-pink-700 mb-4">{{ note.title }}</h1>
 
       <div class="text-sm text-gray-600 mb-6 space-y-1">
-        <p>Created: {{ formatDate(note.created_at) }}</p>
-        <p v-if="note.updated_at !== note.created_at" class="text-pink-600">
-          Updated: {{ formatDate(note.updated_at) }}
+        <p>Created: {{ formatDate(note.createdAt) }}</p>
+        <p v-if="note.updatedAt && note.updatedAt !== note.createdAt" class="text-pink-600">
+          Updated: {{ formatDate(note.updatedAt) }}
         </p>
       </div>
 
@@ -172,7 +176,7 @@ const formatDate = (dateString: string) => {
           </button>
           <button
             type="button"
-            @click="isEditing = false; editTitle = note.title; editContent = note.content"
+            @click="isEditing = false; editTitle = note.title; editContent = note.content ?? ''"
             :disabled="loading"
             class="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
           >
