@@ -4,6 +4,7 @@ import { listNotes, createNote as createNoteRequest } from '../lib/api/notes'
 import type { Note } from '../lib/api/types'
 import type { ApiError } from '../lib/api/types'
 import { getToken, subscribeToToken } from '../lib/session'
+import { formatCambodiaDateTime } from '../lib/date'
 
 const emit = defineEmits<{
   selectNote: [note: Note]
@@ -81,19 +82,6 @@ const createNote = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return 'Unknown'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return dateString
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
 }
 
 const handleTokenChange = (token: string | null) => {
@@ -234,12 +222,12 @@ onBeforeUnmount(() => {
             class="note-item"
           >
             <span class="note-item__title">{{ note.title }}</span>
-            <span class="note-item__meta">Created: {{ formatDate(note.createdAt) }}</span>
+            <span class="note-item__meta">Created: {{ formatCambodiaDateTime(note.createdAt) }}</span>
             <span
               v-if="note.updatedAt && note.updatedAt !== note.createdAt"
               class="note-item__meta note-item__meta--accent"
             >
-              Updated: {{ formatDate(note.updatedAt) }}
+              Updated: {{ formatCambodiaDateTime(note.updatedAt) }}
             </span>
           </button>
         </div>

@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { updateNote as updateNoteRequest, deleteNote as deleteNoteRequest } from '../lib/api/notes'
 import type { Note, ApiError } from '../lib/api/types'
+import { formatCambodiaDateTime } from '../lib/date'
 
 const props = defineProps<{
   note: Note | null
@@ -81,18 +82,7 @@ const deleteNote = async () => {
   }
 }
 
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return 'Unknown'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return dateString
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+const formatDate = formatCambodiaDateTime
 </script>
 
 <template>
