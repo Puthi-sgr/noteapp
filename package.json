@@ -1,5 +1,6 @@
 {
   "name": "vite-vue-typescript-starter",
+  "homepage": "https://github.com/Puthi-sgr/noteapp",
   "private": true,
   "version": "0.0.0",
   "type": "module",

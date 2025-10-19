@@ -12,10 +12,8 @@ dist
 dist-ssr
 *.local
  
-git rm --cached .env
-git rm --cached .env.local
-git rm --cached .env.production
-# Add other environment files as needed
+.env
+.env.*
 
 # Build output
 /build
