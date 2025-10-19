@@ -96,81 +96,82 @@ const formatDate = (dateString?: string | null) => {
 </script>
 
 <template>
-  <div v-if="note" class="flex flex-col h-full">
-    <div class="flex items-center justify-between mb-6">
-      <button
-        @click="emit('close')"
-        class="text-pink-600 hover:text-pink-800 font-medium transition-colors"
-      >
-        ← Back to Notes
-      </button>
-      <div class="flex gap-2">
+  <div v-if="note" class="note-detail">
+    <div class="note-detail__toolbar">
+      <div class="note-detail__toolbar-actions">
         <button
           v-if="!isEditing"
           @click="isEditing = true"
-          class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg transition-colors"
+          class="note-detail__pill-btn"
         >
           Edit
         </button>
         <button
           @click="deleteNote"
           :disabled="loading"
-          class="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded-lg transition-colors"
+          class="note-detail__pill-btn note-detail__pill-btn--danger"
         >
           Delete
         </button>
       </div>
     </div>
 
-    <div v-if="error" class="bg-pink-100 border border-pink-400 text-pink-700 px-4 py-3 rounded mb-4">
+    <div v-if="error" class="alert alert-error note-detail__status">
       {{ error }}
     </div>
 
-    <div v-if="!isEditing" class="bg-white rounded-lg shadow-md p-6 overflow-y-auto">
-      <h1 class="text-3xl font-bold text-pink-700 mb-4">{{ note.title }}</h1>
+    <div v-if="!isEditing" class="note-detail__viewer">
+      <header class="note-detail__header">
+        <h1 class="note-detail__title">{{ note.title }}</h1>
+      </header>
 
-      <div class="text-sm text-gray-600 mb-6 space-y-1">
-        <p>Created: {{ formatDate(note.createdAt) }}</p>
-        <p v-if="note.updatedAt && note.updatedAt !== note.createdAt" class="text-pink-600">
-          Updated: {{ formatDate(note.updatedAt) }}
-        </p>
-      </div>
-
-      <div class="text-gray-800 whitespace-pre-wrap">
+      <section class="note-detail__content">
         {{ note.content || 'No content' }}
-      </div>
+      </section>
+
+      <footer class="note-detail__footer">
+        <span class="note-detail__timestamp">
+          Created: {{ formatDate(note.createdAt) }}
+        </span>
+        <span
+          v-if="note.updatedAt && note.updatedAt !== note.createdAt"
+          class="note-detail__timestamp note-detail__timestamp--accent"
+        >
+          Updated: {{ formatDate(note.updatedAt) }}
+        </span>
+      </footer>
     </div>
 
-    <div v-else class="bg-white rounded-lg shadow-md p-6 overflow-y-auto">
-      <h2 class="text-2xl font-bold text-pink-700 mb-4">Edit Note</h2>
+    <div v-else class="note-detail__editor">
+      <h2 class="note-detail__editor-title">Edit Note</h2>
 
-      <form @submit.prevent="updateNote" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+      <form @submit.prevent="updateNote" class="note-detail__form">
+        <div class="note-detail__form-field">
+          <label class="note-detail__form-label">Title *</label>
           <input
             v-model="editTitle"
             type="text"
             required
-            class="w-full px-3 py-2 border border-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-            placeholder="Enter note title"
+            class="glass-input"
+            placeholder="Update the title"
           />
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Content</label>
+        <div class="note-detail__form-field">
+          <label class="note-detail__form-label">Content</label>
           <textarea
             v-model="editContent"
-            rows="12"
-            class="w-full px-3 py-2 border border-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-            placeholder="Enter note content"
+            rows="10"
+            class="glass-input"
+            placeholder="Refresh the details"
           ></textarea>
         </div>
 
-        <div class="flex gap-2">
+  <div class="note-detail__form-actions">
           <button
             type="submit"
             :disabled="loading"
-            class="flex-1 bg-pink-500 hover:bg-pink-600 disabled:bg-pink-300 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            class="accent-btn w-full"
           >
             {{ loading ? 'Saving...' : 'Save Changes' }}
           </button>
@@ -178,7 +179,7 @@ const formatDate = (dateString?: string | null) => {
             type="button"
             @click="isEditing = false; editTitle = note.title; editContent = note.content ?? ''"
             :disabled="loading"
-            class="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+            class="ghost-btn w-full justify-center"
           >
             Cancel
           </button>

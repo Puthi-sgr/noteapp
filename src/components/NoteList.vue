@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { listNotes, createNote as createNoteRequest } from '../lib/api/notes'
 import type { Note } from '../lib/api/types'
 import type { ApiError } from '../lib/api/types'
+import { getToken, subscribeToToken } from '../lib/session'
 
 const emit = defineEmits<{
   selectNote: [note: Note]
@@ -12,15 +13,34 @@ const notes = ref<Note[]>([])
 const showCreateForm = ref(false)
 const newNoteTitle = ref('')
 const newNoteContent = ref('')
+const searchTerm = ref('')
+const sortDescending = ref(true)
 const loading = ref(false)
 const error = ref('')
+const lastToken = ref<string | null>(null)
+let unsubscribeFromToken: (() => void) | null = null
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+
+const sortLabel = computed(() => sortDescending.value ? 'Newest' : 'Oldest')
 
 const loadNotes = async () => {
+  const token = getToken()
+  if (!token) {
+    notes.value = []
+    error.value = ''
+    loading.value = false
+    return
+  }
+
   loading.value = true
   error.value = ''
 
   try {
-    notes.value = await listNotes()
+    notes.value = await listNotes({
+      search: searchTerm.value.trim() || undefined,
+      sort: 'createdAt',
+      desc: sortDescending.value,
+    })
   } catch (err) {
     const apiError = err as Partial<ApiError>
     error.value = apiError?.message || 'Failed to load notes'
@@ -76,82 +96,154 @@ const formatDate = (dateString?: string | null) => {
   })
 }
 
-onMounted(() => {
+const handleTokenChange = (token: string | null) => {
+  if (!token) {
+    lastToken.value = null
+    notes.value = []
+    error.value = ''
+    return
+  }
+
+  if (token === lastToken.value) {
+    return
+  }
+
+  lastToken.value = token
   loadNotes()
+}
+
+watch(sortDescending, () => {
+  loadNotes()
+})
+
+watch(searchTerm, () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  searchTimeout = setTimeout(() => {
+    searchTimeout = null
+    loadNotes()
+  }, 300)
+})
+
+onMounted(() => {
+  handleTokenChange(getToken())
+  unsubscribeFromToken = subscribeToToken(handleTokenChange)
+})
+
+onBeforeUnmount(() => {
+  unsubscribeFromToken?.()
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
 })
 </script>
 
 <template>
   <div class="flex flex-col h-full">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-2xl font-bold text-pink-700">My Notes</h2>
+    <div class="note-list__heading">
+      <p class="text-xs uppercase tracking-[0.35em] text-[var(--color-text-secondary)]">Library</p>
+      <h2 class="text-2xl font-semibold text-[var(--color-text-primary)]">My Notes</h2>
+    </div>
+
+    <div class="note-list__actions">
       <button
+        type="button"
         @click="showCreateForm = !showCreateForm"
-        class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg transition-colors"
+        class="accent-btn note-list__new-btn"
       >
-        {{ showCreateForm ? 'Cancel' : '+ New Note' }}
+        <span v-if="!showCreateForm" class="note-list__new-icon" aria-hidden="true">+</span>
+        <span>{{ showCreateForm ? 'Cancel' : 'New Note' }}</span>
       </button>
+      <div class="note-list__filters">
+        <div class="note-list__search">
+          <input
+            v-model="searchTerm"
+            type="search"
+            class="note-list__search-input"
+            placeholder="Search notes..."
+            aria-label="Search notes"
+          />
+        </div>
+        <button
+          type="button"
+          class="note-list__sort-btn"
+          @click="sortDescending = !sortDescending"
+          :aria-pressed="sortDescending"
+          aria-label="Toggle sort order"
+        >
+          Sort: {{ sortLabel }}
+        </button>
+      </div>
     </div>
 
-    <div v-if="error" class="bg-pink-100 border border-pink-400 text-pink-700 px-4 py-3 rounded mb-4">
-      {{ error }}
-    </div>
-
-    <div v-if="showCreateForm" class="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-pink-200">
-      <h3 class="text-lg font-semibold text-pink-700 mb-4">Create New Note</h3>
-      <form @submit.prevent="createNote" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+    <div v-if="showCreateForm" class="glass-panel note-create__panel">
+      <h3 class="note-create__title text-[var(--color-text-primary)]">Create New Note</h3>
+      <form @submit.prevent="createNote" class="note-create__form">
+        <div class="note-create__field">
+          <label class="note-create__label text-[var(--color-text-secondary)]">Title *</label>
           <input
             v-model="newNoteTitle"
             type="text"
             required
-            class="w-full px-3 py-2 border border-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-            placeholder="Enter note title"
+            class="glass-input"
+            placeholder="Give your note a headline"
           />
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Content</label>
+        <div class="note-create__field">
+          <label class="note-create__label text-[var(--color-text-secondary)]">Content</label>
           <textarea
             v-model="newNoteContent"
             rows="4"
-            class="w-full px-3 py-2 border border-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-            placeholder="Enter note content (optional)"
+            class="glass-input"
+            placeholder="Capture a thought (optional)"
           ></textarea>
         </div>
         <button
           type="submit"
           :disabled="loading"
-          class="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-pink-300 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          class="accent-btn w-full"
         >
           {{ loading ? 'Creating...' : 'Create Note' }}
         </button>
       </form>
     </div>
 
-    <div v-if="loading && notes.length === 0" class="text-center py-8 text-pink-600">
-      Loading notes...
-    </div>
+  <section class="glass-panel note-list__container">
+      <template v-if="error">
+        <div class="alert alert-error note-list__status">{{ error }}</div>
+      </template>
 
-    <div v-else-if="notes.length === 0" class="text-center py-8 text-gray-500">
-      No notes yet. Create your first note!
-    </div>
+      <template v-else-if="loading && notes.length === 0">
+        <div class="alert alert-info note-list__status text-center">Loading your notes...</div>
+      </template>
 
-    <div v-else class="space-y-3 overflow-y-auto">
-      <div
-        v-for="note in notes"
-        :key="note.id"
-        @click="emit('selectNote', note)"
-        class="bg-white rounded-lg shadow-sm hover:shadow-md p-4 cursor-pointer transition-all border-l-4 border-pink-400 hover:border-pink-600"
-      >
-        <h3 class="font-semibold text-lg text-gray-800 mb-2">{{ note.title }}</h3>
-        <p class="text-sm text-gray-600">
-          Created: {{ formatDate(note.createdAt) }}
-        </p>
-        <p v-if="note.updatedAt && note.updatedAt !== note.createdAt" class="text-xs text-pink-600 mt-1">
-          Updated: {{ formatDate(note.updatedAt) }}
-        </p>
-      </div>
-    </div>
+      <template v-else-if="notes.length === 0">
+        <div class="alert alert-info note-list__status text-center">
+          {{ searchTerm.trim() ? 'No notes match your search yet.' : 'No notes yet. Start by crafting your first idea!' }}
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="note-list__items">
+          <button
+            v-for="note in notes"
+            :key="note.id"
+            type="button"
+            @click="emit('selectNote', note)"
+            class="note-item"
+          >
+            <span class="note-item__title">{{ note.title }}</span>
+            <span class="note-item__meta">Created: {{ formatDate(note.createdAt) }}</span>
+            <span
+              v-if="note.updatedAt && note.updatedAt !== note.createdAt"
+              class="note-item__meta note-item__meta--accent"
+            >
+              Updated: {{ formatDate(note.updatedAt) }}
+            </span>
+          </button>
+        </div>
+      </template>
+    </section>
   </div>
 </template>

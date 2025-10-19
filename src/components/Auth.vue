@@ -46,58 +46,61 @@ const handleAuth = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-pink-100 to-pink-200 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-      <h1 class="text-3xl font-bold text-pink-700 text-center mb-2">
-        Notes App
-      </h1>
-      <p class="text-gray-600 text-center mb-8">
-        {{ isSignUp ? 'Create your account' : 'Sign in to continue' }}
-      </p>
+  <div class="auth-shell">
+    <div class="glass-panel auth-card">
+      <span class="accent-glow"></span>
 
-      <div v-if="error" class="bg-pink-100 border border-pink-400 text-pink-700 px-4 py-3 rounded mb-4">
+      <header class="auth-card__header">
+        <h1 class="auth-card__title">TechBodia Notes</h1>
+        <p class="auth-card__subtitle">
+          {{ isSignUp ? 'Create your account' : 'Sign in to continue' }}
+        </p>
+      </header>
+
+      <div v-if="error" class="alert alert-error">
         {{ error }}
       </div>
 
-      <form @submit.prevent="handleAuth" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+      <form @submit.prevent="handleAuth" class="auth-card__form">
+        <div class="auth-card__form-field">
+          <label class="text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
           <input
             v-model="email"
             type="email"
             required
-            class="w-full px-4 py-3 border border-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-            placeholder="your@email.com"
+            class="glass-input"
+            placeholder="you@example.com"
           />
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+        <div class="auth-card__form-field">
+          <label class="text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
           <input
             v-model="password"
             type="password"
             required
             minlength="6"
-            class="w-full px-4 py-3 border border-pink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-            placeholder="••••••••"
+            class="glass-input"
+            placeholder="Enter your password"
           />
         </div>
 
         <button
           type="submit"
           :disabled="loading"
-          class="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-pink-300 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+          class="accent-btn w-full"
         >
           {{ loading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In') }}
         </button>
       </form>
 
-      <div class="mt-6 text-center">
+      <div class="auth-card__toggle">
         <button
+          type="button"
           @click="isSignUp = !isSignUp; error = ''"
-          class="text-pink-600 hover:text-pink-800 font-medium transition-colors"
+          class="ghost-btn"
         >
-          {{ isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up" }}
+          {{ isSignUp ? 'Already have an account? Sign In' : "Need an account? Sign Up" }}
         </button>
       </div>
     </div>

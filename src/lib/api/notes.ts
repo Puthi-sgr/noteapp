@@ -7,7 +7,10 @@ import type {
 
 type ListNotesOptions = {
   search?: string
-  sort?: 'title'
+  sort?: 'createdAt' | 'updatedAt' | 'title'
+  desc?: boolean
+  skip?: number
+  take?: number
 }
 
 const normalizeContent = <T extends { content?: string | null }>(payload: T) => ({
@@ -21,6 +24,9 @@ export const listNotes = async (options: ListNotesOptions = {}): Promise<NoteRea
     query: {
       q: options.search,
       sort: options.sort,
+      desc: options.desc,
+      skip: options.skip,
+      take: options.take,
     },
   })
 }
